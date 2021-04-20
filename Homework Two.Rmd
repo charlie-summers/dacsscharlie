@@ -1,0 +1,38 @@
+---
+title: "Homework Two"
+author: "Charlie Summers"
+date: "2/21/2021"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+### Brief Summary of Congressional Hearings Dataset
+In this document, code will follow relevant text in order to provide evidence for observations made about the dataset whenever possible.
+The following dataset contains information about the names, dates, topics, and participants in congressional hearings from 1947-2010.
+```{r, include=FALSE}
+library(tidyverse)
+```
+```{r,include=TRUE}
+myData <- read.csv("C://Users/charl/Desktop/Research/R Directories/Practice Zone/congressional_hearings.csv - congressional_hearings.csv.csv")
+```
+The dataset chooses to only track a few variables but spans many observations, with 36 variables and 100,254 observations.
+```{r, include=TRUE}
+dim(myData)
+```
+Some of the variables are more obvious than others- each observation represents a meeting, which is assigned its own id. Other variables (month, day, year) signify the date on which the meeting occurred, while another marks the fiscal year. As the codebook explains, four separate committee variables allow one observation to include up to two committees and two subcommittees. You can see how this method functions below.
+``` {r, include=TRUE}
+head(select(myData,"Committee1","Subcommittee1","Committee2","Subcommittee2"))
+```
+Some of the variables are less clear, or exist primarily for easy filtering. The full list of variables is printed below.
+```{r, include=TRUE}
+colnames(myData)
+```
+While the dataset is too large to be printed in full, it can be previewed below. 
+```{r, includ=TRUE}
+as_tibble(myData)
+```

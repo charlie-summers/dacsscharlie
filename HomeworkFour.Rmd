@@ -1,0 +1,129 @@
+---
+title: "Homework 4"
+author: "Charlie"
+date: "3/22/2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, include=FALSE}
+library(tidyverse)
+library(haven)
+require(haven)
+library(ggplot2)
+nsch2019 <- read_sas("C://Users/charl/Desktop/Potential Datasets/nsch_2019_topical.sas7bdat")
+```
+## Explanation of Intended Visualization
+
+For this assignment, I am aiming to create a graph which visualizes the risk ratio of being diagnosed with ADHD among children with various levels of Adverse Chidlhood Experiences. 
+
+In epidemiology, a risk ratio is calculated by dividing the percentage prevalence of the disease/symptom/diagnosis among the "affected" group (in this case, children diagnosed with ADHD and with a particular number of adverse childhood experiences) by the percentage prevalence among the control group (children diagnosed with ADHD and without adverse experiences).^[My former epidemiology professor has informed me that this particular calculation would technically be called a "Rate Ratio", as it is describing the rate of diagnosis rather than the risk of "contracting" ADHD. However, they are often mistaken for each other and the term "Risk Ratio" is generally more recognizable and still conveys the meaning.] Adverse childhood experiences are a concept stemming from a 1998 study measuring health outcomes among individuals who experienced specific traumatic or life-changing events in childhood. The study found that individuals with a high number of adverse childhood experiences, particularly 4 or more, were at higher risk for numerous health conditions and often had a lower quality of life ^[Felitti, V. J., MD, FACP, Anda, R. F., MD, MS, Nordenberg, D., MD, Williamson, D. F., MS, PhD, Spitz, A. M., MS, MPH, Edwards, V., BA, Koss, M. P., PhD, & Marks, J. S., MD, MPH. (1998). Relationship of Childhood Abuse and Household Dysfunction to Many of the Leading Causes of Death in Adults. American Journal of Preventive Medicine, 14(4), 245–258. https://doi.org/10.1016/s0749-3797(98)00017-8].
+
+The dataset I am working with used a slightly modified list of adverse childhood experiences and asked nine questions- in short, these questions measured the presence of: extreme poverty/food insecurity, racism, divorce, death of an immediate family member, incarceration of an immediate family member, physical abuse of an immediate family member, neighborhood or familial violence, severe mental illness in an immediate family member, and substance use disorder in an immediate family member. 
+
+## Recoding for Visualization
+
+In order to get my intended visualization, I need to consolidate the answers for each "ACE score" question and create a new variable which sums them together. First, I will recode the answers to each question, which are primarily coded with "1" meaning yes and "2" meaning no. In order to sum them, I need "1" to indicate a yes and "2" to indicate a no. The exception to this is ACE1, which asks if the child's household had ever struggled to pay for food or housing. There were four options, ranging from "never" to "very often". I have decided to consider any answer other than "never" as a presence for this ACE Score.
+
+```{r}
+#Creating a binary 1 or 0 for presence of an ACE score
+nsch2019 <- nsch2019 %>%
+  mutate("ACEY3" = recode(ACE3,
+                          "1"= 1,
+                          "2"= 0)) %>%
+  mutate("ACEY4" = recode(ACE4,
+                          "1"= 1,
+                          "2"= 0)) %>%
+  mutate("ACEY5" = recode(ACE5,
+                          "1"= 1,
+                          "2"= 0)) %>%
+  mutate("ACEY6" = recode(ACE6,
+                          "1"= 1,
+                          "2"= 0)) %>%
+  mutate ("ACEY7" = recode(ACE7,
+                           "1"= 1,
+                           "2"= 0)) %>%
+  mutate ("ACEY8" = recode(ACE8,
+                           "1"=1,
+                           "2"=0)) %>%
+  mutate("ACEY9" = recode(ACE9,
+                          "1"=1,
+                          "2"=0)) %>%
+  mutate("ACEY10" = recode(ACE10,
+                           "1"=1,
+                           "2"=0)) %>%
+  mutate("ACEY1" = recode(ACE1,
+                          "1"=0,
+                          "2"=1,
+                          "3"=1,
+                          "4"=1))
+```
+Using these new values, I will create a variable which generates the "ACE Score", or total number of adverse childhood experiences. 
+```{r}
+#Use "ACEY" variables to create an ACESUM, or number of adverse experiences
+nsch2019 <- nsch2019 %>%
+  mutate(ACETOTAL = rowSums(across(starts_with("ACEY"))))
+```
+Now, I will focus on the ADHD diagnoses. The question "Has a doctor or other health care provider EVER told you that this child has Attention Deficit Disorder or Attention-Deficit/Hyperactivity Disorder, that is, ADD or ADHD?" was similarly coded as "1" for Yes and "2" for no. For comprehension's sake, I will recode it to "Y" or "N".
+```{r}
+#Use "K2Q31A" to create a Y/N variable for the presence of ADD/ADHD, "ADHD".
+nsch2019 <- nsch2019 %>%
+  mutate("ADHD" = recode(K2Q31A,
+                         "1" = "Y",
+                         "2" = "N"
+  ))
+```
+Now, if I want a risk ratio, I will first need a variable that measures the percentage of children diagnosed with ADHD within each group. After a lot of trial and error and classroom help, I created a variable which measures this percentage.
+```{r}
+#Create a variable which denotes the percentage of those with ADHD in each group 
+nsch2019 <- nsch2019 %>%
+  group_by(ACETOTAL) %>%
+  filter(!is.na(ADHD)) %>%
+  filter(!is.na(ACETOTAL))%>%
+  mutate(PERCADHD= (sum(ADHD == "Y")/n())*100)
+```
+I would like to visualize the risk ratio rather than the percentage, because a risk ratio compares the current value directly to the "control" value. The difference in sample sizes is significant enough that I feel that this is important for clarity. Unfortunately, I couldn't figure out how to make R calculate the denominator to change based on changes in the data, so I calculated the base risk (at ACE SCORE 0) by hand and am using that as the denominator.
+```{r}
+#Create a variable which denotes the risk ratio for ADHD in each group
+nsch2019 <- nsch2019 %>%
+  group_by(ACETOTAL) %>%
+  filter(!is.na(ADHD)) %>%
+  filter(!is.na(ACETOTAL))%>%
+  mutate(RR = PERCADHD/5.85)
+```
+Finally, due to the discrepancies in sample size (for example, only one child an ACE score of 9), I want to create a variable that indicates the sample size of each group.
+```{r}
+#Create a variable which shows the sample size for each ACETOTAL
+nsch2019 <- nsch2019 %>%
+  group_by(ACETOTAL) %>%
+  filter(!is.na(ADHD)) %>%
+  filter(!is.na(ACETOTAL))%>%
+  mutate(COUNTADHD= n())
+```
+## The Visualization
+```{r}
+ACERR <- ggplot(nsch2019, aes(x=ACETOTAL, y=RR, size=COUNTADHD)) +
+  geom_point() +
+  scale_size(range= c(.1,5)) +
+  labs(title="Risk Ratios for ADHD Dx by # of Adverse Childhood Experiences", 
+       x="ACE Score", 
+       y= "ADHD Risk Ratio",
+       subtitle="point radius indicates sample size") +
+  scale_x_continuous(limits= c(0,8), breaks=seq(0,9,1)) +
+  scale_y_continuous(limits=c(.99,7), breaks=seq(1,7,1)) +
+  theme(legend.position = "none")
+ACERR
+```
+The visualization showcases that the risk of being diagnosed with ADHD increases as children experience more adverse childhood experiences. I would need to run t-tests to see which of these increases are significant, as well as potentially match by age (ADHD is usually diagnosed after several years of life, when a child has had more time to accumulate adverse experiences). The sample sizes of the higher ACE scores are also very small compared to the base group, so I would be hesitant to consider those samples as representative. However, even in the lower scores where there are robust sample sizes, you can see that just 2 adverse childhood experiences makes a child 2.5x more likely to be diagnosed with ADHD. 
+
+
+## Why This Visualization?
+
+As a community health worker, I am interested in the ways in which trauma manifests on the body and in the brain. Many of the symptoms of C-PTSD (PTSD from repeated exposure to trauma, rather than a singular incident) overlap with ADHD^[Biederman, J., Petty, C. R., Spencer, T. J., Woodworth, K. Y., Bhide, P., Zhu, J., & Faraone, S. V. (2012). Examining the nature of the comorbidity between pediatric attention deficit/hyperactivity disorder and post-traumatic stress disorder. Acta Psychiatrica Scandinavica, 128(1), 78–87. https://doi.org/10.1111/acps.12011], and trauma experienced early in life can make structural changes to various sectors of the brain^[Traumatic stress: effects on the brain. (2006). Dialogues in Clinical Neuroscience, 8(4), 445–461. https://doi.org/10.31887/dcns.2006.8.4/jbremner]. I am diagnosed with both ADHD and have a higher ACE score, so I am interested in exploring this correlation and its potential implications for the causes of ADHD or the presence of trauma-informed diagnostics. Considering that most of the ACE scores measured here did not depend on the individual child's behavior, I doubt that this data indicates that children with ADHD are more likely to experience adverse experiences **because** of their ADHD.
+
+In terms of coding, I chose a scatter plot because I wanted to add the sample size as a third dimension, to bring additional understanding to the significance of each ratio in absence of a p-value. I played around with scale sizes until I found something that felt like it accurately depicted the sample size disparity without overwhelming the graph. I tried to change the alpha but was unsuccessful (maybe due to the theme addition which removed the legend). I changed both the x and y scales to improve the ability to understand the values and to make sure that each ACE score had its own recognizable point. I removed the outlier, ACE score of 9, because it didn't convey meaningful information. I removed the legend because I did not want to list each individual sample size. I considered using a bar plot, but I wanted to show the sample size. I also considered using the base percentage rather than a risk ratio, but I wanted to demonstrate the magnitude of increase with each value.
+
+This visualization leaves me with several end goals. The first would be to apply tests of significance to these values, potentially grouping some of the values with a smaller sample size together (for example, the original study grouped together values of 4 or more). I am not sure how to do so, but I would be very interested in age matching to confirm that age is not inflating the difference between each ratio. I would also like to incorporate other variables from the study in order to develop a more nuanced understanding of the groups, such as the variables for ADHD treatment, race, sex, poverty, ADHD medication status, and ADHD severity. Finally, I would like to examine the influence of individual adverse childhood experiences to see if certain experiences "weigh" more towards an ADHD diagnosis.
