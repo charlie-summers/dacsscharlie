@@ -1,0 +1,134 @@
+---
+title: "Homework Five"
+author: "Charlie"
+date: "4/26/2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, include=FALSE}
+library(tidyverse)
+library(haven)
+require(haven)
+library(ggplot2)
+library(knitr)
+nsch2019 <- read_sas("C://Users/charl/Desktop/Potential Datasets/nsch_2019_topical.sas7bdat")
+```
+## Explanation of Intended Visualization
+
+For this assignment, my goal is to expand upon my work from Homework Four to further examine ADHD diagnoses within the dataset. Since exploring the ADHD related information within the dataset, I have found several other variables related to diagnosis, treatment, and medication. In this homework, I would like to focus on a variable I have created and named "ADHDSWITCH" which documents the (relatively rare within the dataset and somewhat rare in real life) instance of being diagnosed with ADHD and later having that diagnosis nullified or replaced with something else. I am measuring this based on the discovery that the dataset has two questions related to ADHD diagnosis- K2Q31A ("Has a doctor or other health care provider EVER told you that this child has… Attention Deficit Disorder or Attention-Deficit/Hyperactivity Disorder, that is, ADD or ADHD?") and K2Q31B ("If yes, does this child CURRENTLY have the condition?").
+
+The CDC regards ADHD as a lifelong neurodevelopmental condition ^[What is ADHD? (2020, April 8). Centers for Disease Control and Prevention. https://www.cdc.gov/ncbddd/adhd/facts.html]. Assuming the parent filling out the form is not misinformed, a child having once been diagnosed with ADHD but no longer "having" the condition would mean that there was a misdiagnosis. There are many theories as to why ADHD may be misdiagnoses, ranging from age/gender bias (children who are younger than their same-grade peers and males are more likely to be diagnosed ^[Ford-Jones, P. C. (2015). Misdiagnosis of attention deficit hyperactivity disorder: ‘Normal behaviour’ and relative maturity. Paediatrics & Child Health, 20(4), 200-202. https://doi.org/10.1093/pch/20.4.200]), trauma history^[Weinstein D, Staffelbach D, Biaggio M. Attention-deficit hyperactivity disorder and posttraumatic stress disorder: differential diagnosis in childhood sexual abuse. Clin Psychol Rev. 2000 Apr;20(3):359-78. doi: 10.1016/s0272-7358(98)00107-x. PMID: 10779899.], and differential diagnosis ^[Moses, S. (2021, April 4). ADHD differential diagnosis. Family Practice Notebook. https://fpnotebook.com/peds/neuro/AdhdDfrntlDgns.htm. I aim to create a variable which captures the misdiagnosed cases within this dataset and then use visualizations to identify any patterns among the children who were misdiagnosed. 
+
+##Recoding for Visualization 
+
+I am building off of previous work, so first I will load some of the essential recoding from my script. These recodes have already been explained in past homeworks but create data that clearly shows race and sex, as well as ACE scores.
+
+```{r}
+#Rename problematic variables
+nsch2019 <- rename(nsch2019, "SC_RACE" = "SC_RACE_R")
+#Recode SC_RACE according to the codebook as SC_RACE_CHR
+nsch2019 <- nsch2019 %>% mutate('SC_RACE_CHR' = recode(SC_RACE,
+                                                       "1" = "White",
+                                                       "2" = "Black",
+                                                       "3" = "AmerInd",
+                                                       "4" = "Asian",
+                                                       "5" = "PacIsl",
+                                                       "7" = "Biracial")) 
+#Recode SC_SEX according to codebook as SC_SEX_CHR
+nsch2019 <- nsch2019 %>% mutate('SC_SEX_CHR' = recode(SC_SEX,
+                                                      "1" = "M",
+                                                      "2" = "F"))
+#Creating a binary 1 or 0 for presence of an ACE score
+nsch2019 <- nsch2019 %>%
+  mutate("ACEY3" = recode(ACE3,
+                          "1"= 1,
+                          "2"= 0)) %>%
+  mutate("ACEY4" = recode(ACE4,
+                          "1"= 1,
+                          "2"= 0)) %>%
+  mutate("ACEY5" = recode(ACE5,
+                          "1"= 1,
+                          "2"= 0)) %>%
+  mutate("ACEY6" = recode(ACE6,
+                          "1"= 1,
+                          "2"= 0)) %>%
+  mutate ("ACEY7" = recode(ACE7,
+                           "1"= 1,
+                           "2"= 0)) %>%
+  mutate ("ACEY8" = recode(ACE8,
+                           "1"=1,
+                           "2"=0)) %>%
+  mutate("ACEY9" = recode(ACE9,
+                          "1"=1,
+                          "2"=0)) %>%
+  mutate("ACEY10" = recode(ACE10,
+                           "1"=1,
+                           "2"=0)) %>%
+  mutate("ACEY1" = recode(ACE1,
+                          "1"=0,
+                          "2"=1,
+                          "3"=1,
+                          "4"=1))
+#Use "ACEY" variables to create an ACESUM, or number of adverse experiences
+nsch2019 <- nsch2019 %>%
+  mutate(ACETOTAL = rowSums(across(starts_with("ACEY"))))
+```
+After discovering that there was a separate question for continued presence of ADHD, I changed my method of coding to create two variables- ADHDDIAG, which indicates a diagnosis of ADHD at *any point*, and ADHDNOW, which indicates a current ADHD diagnosis.
+
+```{r}
+#Use "K2Q31A" to create a Y/N variable for the diagnosis of ADD/ADHD, "ADHDDIAG".
+nsch2019 <- nsch2019 %>%
+  mutate("ADHDDIAG" = recode(K2Q31A,
+                         "1" = "Y",
+                         "2" = "N"
+  ))
+#Use "K2Q31B" to create a Y/N variable for the current presence of ADHD
+nsch2019 <- nsch2019 %>% mutate("ADHDNOW" = recode(K2Q31B,
+                                               "1" = "Y",
+                                               "2" = "N"
+))
+```
+Now, I can create a variable for what I am calling an ADHDSWITCH- instances where the child was once diagnoses with ADHD but is not *currently* diagnosed. 
+
+```{r}
+#Create a variable which signifies if there was an "ADHD switch"- aka was dx
+#with ADHD but does not currently have it 
+nsch2019 <- nsch2019 %>%
+  mutate("ADHDSWITCH" = case_when(
+    ADHDDIAG == "Y" & ADHDNOW == "N" ~ "Y",
+    ADHDDIAG == "Y" & ADHDNOW == "Y" ~ "N"
+  ))
+```
+Finally, because counts are not always useful in visualizations, I will create a "misdiagnosis rate" variable, MISDIAGRATE, which measure the percent of children in each racial category who were misdiagnosed.
+```{r}
+#Create a variable which denotes the misdiagnosis rate in each racial category
+nsch2019 <- nsch2019 %>%
+  group_by(SC_RACE_CHR) %>%
+  filter(!is.na(SC_RACE_CHR)) %>%
+  filter(ADHDDIAG == "Y") %>%
+  filter(!is.na(ADHDNOW)) %>%
+  mutate(MISDIAGRATE = (sum(ADHDSWITCH == "Y")/sum(ADHDDIAG == "Y")))
+```
+## The Visualization
+Now I can visualize the misdiagnosis rates across different racial categories and see if there is any racial disparity. First, I will display a table which shows the misdiagnosis rate by race. I experienced a lot of difficulty dealing with this value, perhaps because it isn't a unique value for each child (which I suppose breaks the rules of tidy data). I have decided to create a table manually using a vector.
+```{r}
+RACE <- c("White","AmerInd","Black","Asian","Biracial","PacIsl")
+  MISDIAG <- c(7.742497, 0, 9.545455, 9.615385, 7.653061, 8.333333)
+  MISRACE <- data.frame(RACE,MISDIAG)
+  kable(MISRACE,
+        col.names= c("Race", "% Misdiagnosed"))
+```
+A Chi-Squared for this relationship failed- I think the sample size is simply just not robust enough to draw reasonable conclusions. While there is clearly some difference between the percentages, without accurate statistics, I can't conclude whether or not there is a disparity. For my final, I will need to focus on larger subsets than this one, perhaps working with the data on ADHD medication rates and severity. My attempts at drawing descriptive statistics are demonstrated below. 
+ 
+```{r}
+#Chi Squared
+chisq.test(nsch2019$MISDIAGRATE,nsch2019$SC_RACE_CHR)
+
+```
+## Conclusions
+
+My hypothesis would be that there is a statistically significant disparity in misdiagnosis rates, given the existing research about ADHD diagnoses. It may illuminate itself more clearly once gender is factored in. However, I think that the sample size of misdiagnoses is not robust enough to continue lingering on it. I intend to continue to focus on ADHD in my final project but I will likely look for ways to work with larger subsets. 
