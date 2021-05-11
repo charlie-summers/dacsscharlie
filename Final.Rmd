@@ -1,0 +1,237 @@
+---
+title: "Final Paper"
+author: "Charlie"
+date: "5/3/2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+#Load necessary packages
+library(tidyverse)
+library(knitr)
+library(kableExtra)
+#Load dataset for National Survey of Children's Health 2019
+library(haven)
+require(haven)
+nsch2019 <- read_sas("C://Users/charl/Desktop/Potential Datasets/nsch_2019_topical.sas7bdat")
+```
+
+## Introduction
+
+Since its introduction to the psychiatric consciousness in 1902, the exact mechanism and diagnostic character of Attention Deficit (Hyperactivity) Disorder[^1]has shifted based on predominant cultural and medical ideologies. Sir George Frederic Still, the British pediatrician who first theorized its existence, defined it as "an abnormal defect of moral control in children", while the 60s brought about the concept of ADHD as "minimal brain damage"[^2]. Epidemiological data often finds that ADHD diagnoses are spread unevenly among race and gender lines [^3], as well as comorbid with significant mediating factors such as severe childhood trauma[^4]. Some critics argue this may be due to the diagnosis' heavy emphasis on perceived behavior (particularly, in the West, classroom conduct) and biases on the part of the diagnosticians. As a medical anthropologist, I am always interested in diagnoses that provide a particularly acute look at the influence of culture on medicine and diagnostics. When I was diagnosed with ADHD in 2012, the DSM-V had not even been released and, at thirteen, my diagnosis was considered one in a line of many "missed childhood cases" of ADHD among female children with acceptable school records. I am interested if continued years of discussion regarding the cultural dimensions affected ADHD diagnosis, along with the rise and subsequent backlash of stimulant prescriptions among children with ADHD [^5], has changed the geography of ADHD prevalence in the U.S.
+
+[^1]: With the introduction of the DSM-V in 2013, Attention Deficit Disorder and Attention Deficit Hyperactivity Disorder have been combined into as single neurodevelopmental disorder, but sources will often still refer to them as two separate entitites.
+
+[^2]: Lange, K. W., Reichl, S., Lange, K. M., Tucha, L., & Tucha, O. (2010). The history of attention deficit hyperactivity disorder. ADHD Attention Deficit and Hyperactivity Disorders, 2(4), 241--255. <https://doi.org/10.1007/s12402-010-0045-8>
+
+[^3]: Xu, G., Strathearn, L., Liu, B., Yang, B., & Bao, W. (2018). Twenty-Year Trends in Diagnosed Attention-Deficit/Hyperactivity Disorder Among US Children and Adolescents, 1997-2016. JAMA Network Open, 1(4), e181471. <https://doi.org/10.1001/jamanetworkopen.2018.1471>
+
+[^4]: Szymanski, K., Sapanski, L., & Conway, F. (2011). Trauma and ADHD -- Association or Diagnostic Confusion? A Clinical Perspective. Journal of Infant, Child, and Adolescent Psychotherapy, 10(1), 51--59. <https://doi.org/10.1080/15289168.2011.575704>
+
+[^5]: Piper, B. J., Ogden, C. L., Simoyan, O. M., Chung, D. Y., Caggiano, J. F., Nichols, S. D., & McCall, K. L. (2018). Trends in use of prescription stimulants in the United States and Territories, 2006 to 2016. PLOS ONE, 13(11), e0206100. <https://doi.org/10.1371/journal.pone.0206100>
+
+I intend to use the National Survey of Child and Maternal Health 2019 to explore factors contributing to ADHD diagnosis and perceived severity among different races and sexes.
+
+## Data
+
+The National Survey of Child and Maternal Health 2019 is conducted regularly (sporadically from 2003 until 2016, annually thereafter) by the Maternal and Child Health Bureau in an attempt to capture significant factors contributing to childrens' health in the United States ^[Child and Adolescent Health Measurement Initiative (2020). "2019 National Survey of Children's Health: Guide to Topics and Questions". Data Resource Center for Child and Adolescent Health supported by the U.S. Department of Health and Human Services, Health Resources and Services Administration (HRSA), Maternal and Child Health Bureau (MCHB). Retrieved [03/08/21] from [www.childhealthdata.org]]. Surveys were administered electronically to select houses across the United States, gathering data about one selected child within the household (referred to by both my own and the original coding as SC, or selected child). Participants completed one of three survey forms- T1, T2, or T3, depending on the age of the child.
+
+As part of the data analysis for this paper, I am utilizing code I wrote for past homework assignments in order to make analysis easier. I have hidden that code for brevity (it would take around two full pages to print) but it can be previewed in my past homework assignments.
+
+```{r, include=FALSE}
+#Rename SC_RACE_R to SC_RACE
+nsch2019 <- rename(nsch2019, "SC_RACE" = "SC_RACE_R")
+#Recode SC_RACE according to the codebook as SC_RACE_CHR
+nsch2019 <- nsch2019 %>% mutate('SC_RACE_CHR' = recode(SC_RACE,
+                                                       "1" = "White",
+                                                       "2" = "Black",
+                                                       "3" = "AmerInd",
+                                                       "4" = "Asian",
+                                                       "5" = "PacIsl",
+                                                       "7" = "Biracial")) 
+#Recode SC_SEX according to codebook as SC_SEX_CHR
+nsch2019 <- nsch2019 %>% mutate('SC_SEX_CHR' = recode(SC_SEX,
+                                                      "1" = "M",
+                                                      "2" = "F"))
+```
+
+The original data has variables related to ADHD diagnosis- ADDTREAT, K2Q31A, K2Q31B, K2Q31C, and K2Q31D. I renamed and recoded each of these according to the codebook[^6]. I don't expect to use all of them, but I will recode all of them in case I need them for visualizations.
+
+[^6]: Child and Adolescent Health Measurement Initiative (2020). "2019 National Survey of Children's Health: Guide to Topics and Questions". Data Resource Center for Child and Adolescent Health supported by the U.S. Department of Health and Human Services, Health Resources and Services Administration (HRSA), Maternal and Child Health Bureau (MCHB). Retrieved [03/08/21] from [www.childhealthdata.org].
+
+```{r}
+#Create a Y/N variable for whether or not ADHD is treated 
+nsch2019 <- nsch2019 %>%
+  mutate("ADHDTREAT" = recode(ADDTREAT,
+                              "1" = "Y",
+                              "2" = "N"
+  ))
+#Use "K2Q31A" to create a Y/N variable for the diagnosis of ADD/ADHD, "ADHDDIAG".
+nsch2019 <- nsch2019 %>%
+  mutate("ADHDDIAG" = recode(K2Q31A,
+                             "1" = "Y",
+                             "2" = "N"
+  ))
+#Use "K2Q31B" to create a Y/N variable for the current presence of ADHD
+nsch2019 <- nsch2019 %>% mutate("ADHDNOW" = recode(K2Q31B,
+                                                   "1" = "Y",
+                                                   "2" = "N"
+))
+#Create a descriptive variable for severity of ADHD
+nsch2019 <-nsch2019 %>%
+  mutate("ADHDSEV"= recode(K2Q31C,
+                           "1"="Mild",
+                           "2"= "Moderate",
+                           "3" = "Severe"
+  ))
+#Create a Y/N variable for whether or not ADHD is medicated
+nsch2019 <-nsch2019 %>%
+  mutate("ADHDMED" = recode(K2Q31D,
+                            "1"="Y",
+                            "2"="N"
+  ))
+
+```
+The most relevant variables in my dataset, for the purpose of my research question, are SC_RACE_CHR (selected child race), SC_SEX_CHR (selected child sex), ADHDNOW (selected child currently has ADHD), ADHDDIAG (selected child has ever been diagnosed with ADHD), and ADHDSEV (perceived severity of the child's ADHD). 
+
+### SC_RACE_CHR and SC_SEX_CHR
+These two variables convey important demographic information for the analysis. A crosstabulation of their sample sizes can be seen below.
+```{r}
+xtabs(~ SC_RACE_CHR + SC_SEX_CHR, nsch2019)
+```
+### ADHDNOW and ADHDDIAG
+These are an interesting pair- there is a small handful of children who were diagnosed with ADHD but later reported not to have the condition. In a past homework assignment, I created a variable which measured this and called it ADHDSWITCH- to indicate a switch from being diagnosed to no longer being diagnosed. Unfortunately, it wasn't robust enough for serious analysis. Below, you can see a summary of ADHDNOW and then a one-sided crosstab which helps illustrate the ADHDSWITCH group.
+
+```{r}
+nsch2019 %>% group_by(ADHDNOW) %>% summarise(count=n())
+xtabs(~ ADHDNOW + ADHDDIAG, nsch2019)
+```
+### ADHDSEV
+My final analysis will focus on this variable, which measures parents perception of the severity of their child's ADHD. This variable interests me because it is rife with cultural influence- while it purports to measure the severity of the child's condition, I would argue that, since parents are not clinicians and severity of behavioral symptoms is a rather arbitrary and subjective concept, it more accurately measures parent's perception of their child. Below is a snapshot of the distribution of ADHD severities.
+```{r}
+nsch2019 %>% filter(!is.na(ADHDSEV)) %>% group_by(ADHDSEV) %>% summarise(count=n())
+```
+
+In order to examine my research question, I need to create an easy way to look at my subset population- children diagnosed with ADHD. For easier visualizations, I will create a dataset called nsch2019adhd which captures only the children who have *ever been* diagnosed with ADHD.
+
+```{r}
+#Create dataset including only ADHD diagnosees
+nsch2019adhd <- nsch2019 %>%
+  filter(ADHDNOW == "Y" | ADHDDIAG == "Y") 
+```
+
+Many of the racial categories had vastly different sample sizes (as opposed to sex, which was relatively evenly distributed). In order to visualize the differences in ADHD prevalence across racial categories, I will need to calculate the percentage of children diagnosed within each racial group.
+
+```{r}
+#Create a variable called RACEPERC which shows the percentage of 
+#children diagnosed within each racial group
+nsch2019 <- nsch2019 %>%
+  group_by(SC_RACE_CHR) %>%
+  mutate(RACEPERC= ((sum(ADHDNOW == "Y", na.rm = TRUE))/n())*100) %>%
+  ungroup()
+```
+
+## Visualizations
+
+First, let's look at the demographics of children diagnosed with ADHD compared to the demographics of the original dataset.
+
+```{r}
+#Bar Graph for ADHD Subset
+nsch2019adhd %>%
+  filter(!is.na(SC_SEX_CHR)) %>%
+ggplot(aes(x=SC_SEX_CHR, fill=SC_RACE_CHR))+
+  geom_bar() +
+  labs(title= "Demographics of Children Diagnosed with ADHD", x="Sex", fill= "Race")
+#Bar Graph for Original Dataset
+nsch2019 %>%
+  filter(!is.na(SC_SEX_CHR)) %>%
+  filter(!is.na(SC_RACE_CHR)) %>%
+ggplot(aes(x=SC_SEX_CHR, fill=SC_RACE_CHR))+
+  geom_bar() +
+  labs(title= "Demographics of Original Dataset", x="Sex", fill= "Race")
+```
+
+The most glaring difference apparent without analysis is that, as expected, males were significantly more likely to be diagnosed with ADHD than females. The racial differences are difficult to see given that the majority of the population in both categories is white. In order to visualize this difference, I need to use the RACEPERC variable that I calculated earlier.
+
+```{r}
+ggplot(nsch2019, aes(x=SC_RACE_CHR, y=RACEPERC)) +
+    geom_point() +
+scale_y_continuous(limits=c(0,20)) +
+  labs(title= "Percentage of Children with ADHD Across Racial Groups", y= "Percentage with ADHD", x="Race")
+```
+
+While these may appear to be significant, attempts to run a Chi-Squared test indicate that sample sizes aren't high enough to make any statistically significant conclusions.
+
+```{r}
+chisq.test(nsch2019$SC_RACE_CHR,nsch2019$ADHDNOW)
+```
+
+One group stood out to me as I was playing around with graphs- black males with ADHD. As seen with white males, they were considerably more likely to be diagnosed with ADHD than their female counterparts. However, they also appeared to be more likely to have "Severe" ADHD than their white counterparts. Due to the discrepancy in sample sizes between the white and black subsets, I will need to calculate percentages in order to create accurate graphics that compare black and white males with ADHD.
+
+```{r}
+#Generate a variable which denotes the  % likelihood of ADHD being
+#"Severe" grouped by race and sex
+nsch2019percs <- nsch2019 %>%
+  filter(ADHDNOW == "Y") %>%
+  group_by(SC_RACE_CHR, SC_SEX_CHR) %>%
+  mutate(SEVRACEPERC= ((sum(ADHDSEV == "Severe", na.rm = TRUE))/n())*100)
+#Create a table which shows the percent chance of Severe ADHD
+tab1 <- data.frame(Race = c("White", "White", "Black", "Black"),
+                  Gender = c("M", "F", "M", "F"),
+                  Percentage = c(11.63,7.65,20,10.34))
+kable(tab1, caption="Percent Chance of 'Severe' ADHD Across Race and Sex")
+```
+
+In order to get more accurate visualizations, I've decided to make things easier on myself and create a separate dataframe containing only the percentages.
+
+```{r}
+percsevadhd <- nsch2019adhd %>%
+  filter(!is.na(ADHDSEV)) %>%
+  count(ADHDSEV, SC_RACE_CHR, SC_SEX_CHR) %>%
+  group_by(SC_RACE_CHR) %>%
+  mutate(PERCSEVRACE = (n / sum(n)) * 100) %>%
+  ungroup()
+```
+
+Now, we can visualize the difference between perceived severity of ADHD among racial categories. Unfortunately, the majority of available racial categories had relatively insignificant sample sizes and thus provided shoddy data. Arguably, there are not even enough black males within the study to make meaningful conclusions. The summary of the group data that I compiled can be seen below.
+
+```{r}
+kable(percsevadhd, caption = "Summary of Race and ADHD Severity Statistics")
+```
+
+Due to the extremely small sample sizes, I will be filtering out the races with significantly smaller sample sizes, particularly in order to highlight the difference between the black and white male population.
+
+```{r}
+percsevadhd %>%
+  filter(SC_RACE_CHR == "White" | SC_RACE_CHR == "Black"|SC_RACE_CHR == "Biracial") %>%
+  filter(!is.na(ADHDSEV)) %>%
+  ggplot(aes(x = ADHDSEV, y = PERCSEVRACE, fill=SC_SEX_CHR)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Perceived ADHD Severity by Race",
+       x = "Perceived ADHD Severity",
+       y = "Percentage of Total Cases", fill = "Sex") +
+  facet_wrap(~SC_RACE_CHR)
+```
+
+## Reflection
+
+The hardest part of this analysis, by far, was wrangling with percentages due to the discrepancies in sample sizes. Creating the percentages without warping the dataframe was a lot more difficult than I expected. I spent longer than I'd like to admit trying to figure out a way to visualize something other than count on the y axis of a geom_bar or a geom_col and I ended up having to give up and get creative. I also experienced a lot of accidental overwriting of the dataframe because I piped a filter function and then applied it to the dataframe. I'm assuming there is a way to use filters (or accomplish the same thing differently) without overwriting the data, but I just assigned it to a different dataframe. This is, largely, why there is not a t test accompanying my final claim- I couldn't get them both in the same dataframe and I certainly couldn't figure out how to do a t test between two dataframes. I'm also pretty sure that the percentages in the final visualization do not add up to 100% and I can't tell if they are including the female data as part of the whole or if they are using the NA data still.
+
+There are a few decisions that I'm concerned influenced my findings- the first one lies more on the survey takers, which is that gender was imputed in order to have 100% completed. The imputation method was not clarified and I'm not familiar with how imputation works, but it concerns me that sex data may not be accurate if some of it is imputed. The second is my choice to work with a population with a relatively small sample size- the original dataset was large enough to allow for statistically significant conclusions but I chose to narrow into a subset that was likely too small to reach meaningful conclusions. I understand that there are certain methods to weight the data and make it more meaningful, but those are well beyond my abilities. Finally, I'm unhappy with some of my earlier visualizations- I struggled a lot with determining the best way to conceptualize percentages and I feel that my earlier line graph doesn't effectively communicate the risk or the discrepancies in sample size.
+
+If I were to continue, I'd like to get a better grasp on how to manipulate the data through percentages and calculating prevalence and risk ratios. I wish that I better understood how to join dataframes together and visualize the final product of functions rather than scouring Stack Overflow for code to mimic and then checking them by hand after. I plan on continuing to learn how to use tidyverse, particularly because I realized during the process of writing this paper that there are several functions I still don't have a good grasp on (summarise, for one). I also felt this nagging sensation during the paper that there were things that I **could** do but couldn't figure out how- a sense that certainly R was capable of it but I wasn't capable of making R capable of it (for example, I struggled a lot with viewing summaries of the statistics like counts of subsets, which seemed like a simple issue).
+
+## Conclusion
+
+Based on my preliminary analysis of this data, it seems evident that disparities in diagnosis and perceived severity of ADHD between races and sexes persists. All of the graphics clearly show that males are still significantly more likely to be diagnosed than females, and females are less likely to be perceived as having "Severe" ADHD. At first glance, the prevalence of ADHD among black, biracial, and white children appears to be relatively similar. However, once you subset by sex, you can see a large difference between the prevalence of "Severe" ADHD among black and white males.
+
+This is significant for several reasons, all of which center around the fact that the severity of ADHD is perceived- that is, this isn't a disorder for which there can be objective labs drawn to place people in clinically significant groups. The severity of the ADHD was measured by asking the parents to rate it based on their (and, likely, their child's clinician's) perception of the child's ADHD. As I mentioned earlier, ADHD is frequently diagnosed based off of scholastic behavior[^7]. Oftentimes the diagnosis follows a pattern of disruptive or inattentive behavior resulting in interpersonal and educational conflicts. All of this being said, black children, particularly black boys, are more likely to be disciplined than their white peers [^8], and there are racial discrepancies in the ways that adults rate ADHD behavior [^9]. The fact that people may be perceiving black males ADHD behaviors as more "Severe" than their white counterparts could be evidence of continued racial bias against black boys which over-pathologizes their behavior.
+
+Ultimately, significantly more talented analysis would need to be done for me to make any conclusions based on this data. However, the patterns that emerged suggest to me that the cultural dimensions of ADHD diagnosis are still very relevant and prevalent today. Without pointed awareness towards race/sex biases and the subjectivity of the diagnostic tools available, ADHD diagnosis could easily become another route to furthering inequity.
+
+[^7]: Schneider, H. (2006). Who Receives a Diagnosis of Attention-Deficit/ Hyperactivity Disorder in the United States Elementary School Population? PEDIATRICS, 117(4), e601--e609. <https://doi.org/10.1542/peds.2005-1308>
+
+[^8]: Little, S. D., & Tolbert, L. V. A. (2018). The Problem with Black Boys: Race, Gender, and Discipline in Christian and Private Elementary Schools. Christian Education Journal: Research on Educational Ministry, 15(3), 408--421. <https://doi.org/10.1177/0739891318805760>
+
+[^9]: Kang, S., & Harvey, E. A. (2019). Racial Differences Between Black Parents' and White Teachers' Perceptions of Attention-Deficit/Hyperactivity Disorder Behavior. Journal of Abnormal Child Psychology, 48(5), 661--672. <https://doi.org/10.1007/s10802-019-00600-y>
